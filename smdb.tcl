@@ -186,17 +186,17 @@ proc status_refresh {} {
 	variable _undo
 	if {!$_undo(active) || [llength $_undo(undostack)]==0} {
 		puts ud
-		.t.undo state disabled
+		.entry.f.undo state disabled
 	} else {
 		puts ue
-		.t.undo state !disabled
+		.entry.f.undo state !disabled
 	}
 	if {!$_undo(active) || [llength $_undo(redostack)]==0} {
 		puts rd
-		.t.redo state disabled
+		.entry.f.redo state disabled
 	} else {
 		puts re
-		.t.redo state !disabled
+		.entry.f.redo state !disabled
 	}
 }
 
@@ -308,69 +308,73 @@ if {[lsearch $themes aqua] >= 0} {
 	ttk::style theme use clam
 }
 
-ttk::frame .t
+proc create_entry {} {
+	toplevel .entry
+	wm title .entry "Sheet Music Database: Data Entry"
+	ttk::frame .entry.f
 
-ttk::frame .t.erow
-wm title . "Sheet Music Database: Entry"
+	ttk::frame .entry.f.erow
 
-ttk::label .t.erow.titlel -text "Book Title"
-ttk::label .t.erow.authorl -text "Book Author"
-ttk::label .t.erow.instrumentl -text "Book Instrument"
-ttk::label .t.erow.duetl -text "Duets?"
-ttk::label .t.erow.namel -text "Hymn Tune"
-ttk::entry .t.erow.title
-ttk::entry .t.erow.author
-ttk::combobox .t.erow.instrument -state readonly -values {organ piano}
-ttk::checkbutton .t.erow.duet
-ttk::entry .t.erow.name
-ttk::button .t.erow.enter -text Enter -command gui_enter -takefocus 0
 
-ttk::separator .t.sep1 -orient vertical -takefocus 0
-ttk::separator .t.sep2 -orient vertical -takefocus 0
+	ttk::label .entry.f.erow.titlel -text "Book Title"
+	ttk::label .entry.f.erow.authorl -text "Book Author"
+	ttk::label .entry.f.erow.instrumentl -text "Book Instrument"
+	ttk::label .entry.f.erow.duetl -text "Duets?"
+	ttk::label .entry.f.erow.namel -text "Hymn Tune"
+	ttk::entry .entry.f.erow.title
+	ttk::entry .entry.f.erow.author
+	ttk::combobox .entry.f.erow.instrument -state readonly -values {organ piano}
+	ttk::checkbutton .entry.f.erow.duet
+	ttk::entry .entry.f.erow.name
+	ttk::button .entry.f.erow.enter -text Enter -command gui_enter -takefocus 0
 
-ttk::button .t.undo -text "Undo" -command ::undo::undo -takefocus 0
-ttk::button .t.redo -text "Redo" -command ::undo::redo -takefocus 0
+	ttk::separator .entry.f.sep1 -orient vertical -takefocus 0
+	ttk::separator .entry.f.sep2 -orient vertical -takefocus 0
 
-grid .t.erow.titlel .t.erow.authorl .t.erow.instrumentl .t.erow.duetl .t.erow.namel -sticky nsew
-grid .t.erow.title .t.erow.author .t.erow.instrument .t.erow.duet .t.erow.name .t.erow.enter -sticky nsew
+	ttk::button .entry.f.undo -text "Undo" -command ::undo::undo -takefocus 0
+	ttk::button .entry.f.redo -text "Redo" -command ::undo::redo -takefocus 0
 
-grid .t.undo .t.sep1 .t.redo .t.sep2 .t.erow -sticky nsew
+	grid .entry.f.erow.titlel .entry.f.erow.authorl .entry.f.erow.instrumentl .entry.f.erow.duetl .entry.f.erow.namel -sticky nsew
+	grid .entry.f.erow.title .entry.f.erow.author .entry.f.erow.instrument .entry.f.erow.duet .entry.f.erow.name .entry.f.erow.enter -sticky nsew
 
-grid rowconfigure .t 0 -weight 1
+	grid .entry.f.undo .entry.f.sep1 .entry.f.redo .entry.f.sep2 .entry.f.erow -sticky nsew
 
-pack .t
+	grid rowconfigure .entry.f 0 -weight 1
 
-foreach widget [winfo children .t.erow] {
-	grid configure $widget -padx 2 -pady 2
+	pack .entry.f
+
+	foreach widget [winfo children .entry.f.erow] {
+		grid configure $widget -padx 2 -pady 2
+	}
+	foreach widget [winfo children .entry.f] {
+		grid configure $widget -padx 4 -pady 4
+	}
+
+	.entry.f.erow.instrument set organ
+
+	bind .entry <Control-Z> ::undo::undo
+	bind .entry <Control-Y> ::undo::redo
+	bind .entry <Control-R> ::undo::redo
+
+	bind .entry <Return> {gui_enter}
+
+	::undo::activate books tunes book2tune
 }
-foreach widget [winfo children .t] {
-	grid configure $widget -padx 4 -pady 4
-}
-
-.t.erow.instrument set organ
-
-bind . <Control-Z> ::undo::undo
-bind . <Control-Y> ::undo::redo
-bind . <Control-R> ::undo::redo
-
-bind .t <Return> {gui_enter}
-
-::undo::activate books tunes book2tune
 
 proc gui_enter {} {
 	addrow
-	.t.erow.name delete 0 end
+	.entry.f.erow.name delete 0 end
 	::undo::event
 }
 
 proc addrow {} {
 	global histsql
 	# Get our values as Tcl variables for sqlite's eval command
-	set title [.t.erow.title get]
-	set author [.t.erow.author get]
-	set instrument [.t.erow.instrument get]
-	set duet [expr {[lsearch [.t.erow.duet state] "selected"] >= 0}]
-	set name [.t.erow.name get]
+	set title [.entry.f.erow.title get]
+	set author [.entry.f.erow.author get]
+	set instrument [.entry.f.erow.instrument get]
+	set duet [expr {[lsearch [.entry.f.erow.duet state] "selected"] >= 0}]
+	set name [.entry.f.erow.name get]
 	
 	set book ""
 	set tune ""
@@ -430,3 +434,12 @@ proc addrow {} {
 		}
 	}
 }
+
+wm title . "Sheet Music Database"
+
+ttk::frame .f
+ttk::button .f.entry -text "Data Entry" -command {if {![winfo exists .entry]} {create_entry}}
+
+pack .f
+pack .f.entry
+
