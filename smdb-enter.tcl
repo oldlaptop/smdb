@@ -9,7 +9,7 @@ db eval {CREATE TABLE IF NOT EXISTS tunes (id INTEGER PRIMARY KEY ASC AUTOINCREM
 db eval {CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
                                            title TEXT ASC,
                                            author TEXT ASC)}
-db eval {CREATE TABLE IF NOT EXISTS books2tunes (id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
+db eval {CREATE TABLE IF NOT EXISTS book2tune (id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
                                                  bookid INTEGER REFERENCES books(id),
                                                  tuneid INTEGER REFERENCES tunes(id))}
 db eval {PRAGMA foreign_keys=ON}
@@ -39,30 +39,20 @@ foreach widget [winfo children .erow] {
 
 bind . <Return> {addrow}
 
-# Execute a list of sql statements as a single transaction.
-proc do_trans {trans {auto_id -1}} {
-	db transaction {
-		foreach stmt $trans {
-			db eval $stmt
-		}
-	}
-}
-
 proc addrow {} {
 	# Get our values as Tcl variables for sqlite's eval command
 	set title [.erow.title get]
-	set author [.erow.author.get]
-	set name [.erow.name.get]
+	set author [.erow.author get]
+	set name [.erow.name get]
 
 	set book [db eval {SELECT id FROM books WHERE title = $title}]
 
 	# If the book exists, book should now have a single element.
-	switch [llength book]
-	{
+	switch [llength $book] {
 		0 {
 			# Create a new book
-			tpush {INSERT INTO books VALUES(NULL, $name
-			
+			db eval {INSERT INTO books VALUES(NULL, $title, $author)}
+			set book [db last_insert_rowid]
 		}
 		1 {
 			# We use the existing book, no change
@@ -73,5 +63,31 @@ proc addrow {} {
 			puts "using [lindex $book 0]"
 			set book [lindex $book 0]
 		}
+	}
+
+	set tune [db eval {SELECT id FROM tunes WHERE name = $name}]
+
+	# See books above.
+	switch [llength $tune] {
+		0 {
+			# Create a new tune
+			db eval {INSERT INTO tunes VALUES(NULL, $name)}
+			set tune [db last_insert_rowid]
+		}
+		1 {
+			# We use the existing tune, no change
+		}
+		default
+		{
+			puts "warning: inconsistent database! tunes $tune are identical"
+			puts "using [lindex $tune 0]"
+			set book [lindex $tune 0]
+		}
+	}
+
+	if {![db exists {SELECT 1 FROM book2tune WHERE bookid=$book AND tuneid=$tune}]} {
+		db eval {INSERT INTO book2tune VALUES(NULL, $book, $tune)}
+	} else {
+		puts "warning: tried to re-add existing relationship between book $book and tune $tune"
 	}
 }
