@@ -18,8 +18,20 @@ db eval {PRAGMA foreign_keys=ON}
 
 tk appname "smdb-enter"
 wm title . "Sheet Music Database: Update"
-# probably comment out for osx
-ttk::style theme use clam
+
+set themes [ttk::style theme names]
+if {[lsearch $themes aqua] >= 0} {
+	ttk::style theme use aqua
+} elseif {[lsearch $themes vista] >= 0} {
+	ttk::style theme use vista
+} elseif {[lsearch $themes xpnative] >= 0} {
+	ttk::style theme use xpnative
+} elseif {[lsearch $themes winnative] >= 0} {
+	ttk::style theme use winnative
+} elseif {[lsearch $themes clam] >= 0} {
+	# clam shows keyboard focus for comboboxes, unlike alt/default/classic
+	ttk::style theme use clam
+}
 
 ttk::frame .erow
 
