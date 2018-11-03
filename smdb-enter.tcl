@@ -35,6 +35,7 @@ proc activate {args} {
 	set _undo(active) 1
 	set _undo(freeze) -1
 	_start_interval
+	status_refresh
 }
 
 # proc:  ::undo::deactivate
@@ -183,17 +184,19 @@ set _undo(startstate) {}
 #
 proc status_refresh {} {
 	variable _undo
-	if {[winfo exists .hist]} {
-		if {!$_undo(active) || [llength $_undo(undostack)]==0} {
-			.hist.f.undo state disabled
-		} else {
-			.hist.f.undo state !disabled
-		}
-		if {!$_undo(active) || [llength $_undo(redostack)]==0} {
-			.hist.f.redo state disabled
-		} else {
-			.hist.f.redo state !disabled
-		}
+	if {!$_undo(active) || [llength $_undo(undostack)]==0} {
+		puts ud
+		.t.undo state disabled
+	} else {
+		puts ue
+		.t.undo state !disabled
+	}
+	if {!$_undo(active) || [llength $_undo(redostack)]==0} {
+		puts rd
+		.t.redo state disabled
+	} else {
+		puts re
+		.t.redo state !disabled
 	}
 }
 
@@ -209,6 +212,7 @@ proc _create_triggers {db args} {
 	catch {$db eval {DROP TABLE undolog}}
 	$db eval {CREATE TEMP TABLE undolog(seq integer primary key, sql text)}
 	foreach tbl $args {
+		puts "omg triggered $tbl"
 		set collist [$db eval "pragma table_info($tbl)"]
 		set sql "CREATE TEMP TRIGGER _${tbl}_it AFTER INSERT ON $tbl BEGIN\n"
 		append sql "  INSERT INTO undolog VALUES(NULL,"
@@ -289,7 +293,6 @@ proc _step {v1 v2} {
 
 # End of the ::undo namespace
 }
-::undo::activate
 
 set themes [ttk::style theme names]
 if {[lsearch $themes aqua] >= 0} {
@@ -322,14 +325,16 @@ ttk::checkbutton .t.erow.duet
 ttk::entry .t.erow.name
 ttk::button .t.erow.enter -text Enter -command gui_enter -takefocus 0
 
-ttk::separator .t.sep -orient vertical -takefocus 0
+ttk::separator .t.sep1 -orient vertical -takefocus 0
+ttk::separator .t.sep2 -orient vertical -takefocus 0
 
-ttk::button .t.histb -text "Undo History" -command create_hist -takefocus 0
+ttk::button .t.undo -text "Undo" -command ::undo::undo -takefocus 0
+ttk::button .t.redo -text "Redo" -command ::undo::redo -takefocus 0
 
 grid .t.erow.titlel .t.erow.authorl .t.erow.instrumentl .t.erow.duetl .t.erow.namel -sticky nsew
 grid .t.erow.title .t.erow.author .t.erow.instrument .t.erow.duet .t.erow.name .t.erow.enter -sticky nsew
 
-grid .t.histb .t.sep .t.erow -sticky nsew
+grid .t.undo .t.sep1 .t.redo .t.sep2 .t.erow -sticky nsew
 
 grid rowconfigure .t 0 -weight 1
 
@@ -350,35 +355,12 @@ bind . <Control-R> ::undo::redo
 
 bind .t <Return> {gui_enter}
 
-proc create_hist {} {
-	global histsql
-	if {![winfo exists .hist]} {
-		toplevel .hist
-		ttk::frame .hist.f
-		wm title .hist "Sheet Music Database: Undo History"
-
-		ttk::button .hist.f.undo -text "Undo" -command ::undo::undo -state disabled
-		ttk::button .hist.f.redo -text "Redo" -command ::undo::redo -state disabled
-		text .hist.f.tbox -height 16
-		.hist.f.tbox insert end $histsql
-
-		pack .hist.f
-
-		grid .hist.f.undo .hist.f.redo
-		grid .hist.f.tbox -columnspan 2
-	}
-}
+::undo::activate books tunes book2tune
 
 proc gui_enter {} {
-	global histsql
-	set histsql [string cat $histsql [addrow]]
+	addrow
 	.t.erow.name delete 0 end
 	::undo::event
-	if {[winfo exists .hist]} {
-		# Update the fake undo history
-		.hist.f.tbox replace 0.0 end $histsql
-	}
-	puts $histsql
 }
 
 proc addrow {} {
@@ -392,7 +374,6 @@ proc addrow {} {
 	
 	set book ""
 	set tune ""
-	set ret ""
 
 	if {[string length $title] > 0 && [string length $author] > 0} {
 		set book [db eval {SELECT id FROM books WHERE title = $title AND author = $author}]
@@ -400,9 +381,7 @@ proc addrow {} {
 		switch [llength $book] {
 			0 {
 				# Create a new book
-				set bookcreate {INSERT INTO books VALUES(NULL, $title, $author, $instrument, $duet)}
-				db eval $bookcreate
-				set ret [string cat $ret [subst $bookcreate] ";\n"]
+				db eval {INSERT INTO books VALUES(NULL, $title, $author, $instrument, $duet)}
 				set book [db last_insert_rowid]
 			}
 			1 {
@@ -426,9 +405,7 @@ proc addrow {} {
 		switch [llength $tune] {
 			0 {
 				# Create a new tune
-				set tunecreate {INSERT INTO tunes VALUES(NULL, $name)}
-				db eval $tunecreate
-				set ret [string cat $ret [subst $tunecreate] ";\n"]
+				db eval {INSERT INTO tunes VALUES(NULL, $name)}
 				set tune [db last_insert_rowid]
 			}
 			1 {
@@ -446,13 +423,10 @@ proc addrow {} {
 	}
 
 	if {[llength $book] > 0 && [llength $tune] > 0} {
-		if {![db exists {SELECT 1 FROM book2tune WHERE bookid=$book AND tuneid=$tune}]} {
-			set b2tcreate {INSERT INTO book2tune VALUES(NULL, $book, $tune)}
-			db eval $b2tcreate
-			set ret [string cat $ret [subst $b2tcreate] ";\n"]
+		if {![db exists {SELECT id FROM book2tune WHERE bookid=$book AND tuneid=$tune}]} {
+			db eval {INSERT INTO book2tune VALUES(NULL, $book, $tune)}
 		} else {
 			puts "warning: tried to re-add existing relationship between book $book and tune $tune"
 		}
 	}
-	return [string cat $ret "----\n"]
 }
