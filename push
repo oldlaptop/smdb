@@ -1,0 +1,8 @@
+#! /bin/sh
+
+remotes="rustbucket raspberrypi fogbox"
+
+for remote in $remotes
+do
+	git push $remote master
+done
