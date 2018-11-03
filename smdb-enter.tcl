@@ -8,7 +8,9 @@ db eval {CREATE TABLE IF NOT EXISTS tunes (id INTEGER PRIMARY KEY ASC AUTOINCREM
                                            name TEXT ASC)}
 db eval {CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
                                            title TEXT ASC,
-                                           author TEXT ASC)}
+                                           author TEXT ASC,
+                                           instrument TEXT ASC,
+                                           duet BOOLEAN)}
 db eval {CREATE TABLE IF NOT EXISTS book2tune (id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
                                                  bookid INTEGER REFERENCES books(id),
                                                  tuneid INTEGER REFERENCES tunes(id))}
@@ -16,26 +18,34 @@ db eval {PRAGMA foreign_keys=ON}
 
 tk appname "smdb-enter"
 wm title . "Sheet Music Database: Update"
+# probably comment out for osx
+ttk::style theme use clam
 
 ttk::frame .erow
 
 ttk::label .erow.titlel -text "Book Title"
 ttk::label .erow.authorl -text "Book Author"
+ttk::label .erow.instrumentl -text "Book Instrument"
+ttk::label .erow.duetl -text "Duets?"
 ttk::label .erow.namel -text "Hymn Tune"
 
 ttk::entry .erow.title
 ttk::entry .erow.author
+ttk::combobox .erow.instrument -state readonly -values {organ piano}
+ttk::checkbutton .erow.duet
 ttk::entry .erow.name
-ttk::button .erow.enter -text Enter -command gui_enter
+ttk::button .erow.enter -text Enter -command gui_enter -takefocus 0
 
 pack .erow
 
-grid .erow.titlel .erow.authorl .erow.namel
-grid .erow.title .erow.author .erow.name .erow.enter
+grid .erow.titlel .erow.authorl .erow.instrumentl .erow.duetl .erow.namel
+grid .erow.title .erow.author .erow.instrument .erow.duet .erow.name .erow.enter
 
 foreach widget [winfo children .erow] {
 	grid configure $widget -padx 4 -pady 4
 }
+
+.erow.instrument set organ
 
 bind . <Return> {gui_enter}
 
@@ -48,6 +58,8 @@ proc addrow {} {
 	# Get our values as Tcl variables for sqlite's eval command
 	set title [.erow.title get]
 	set author [.erow.author get]
+	set instrument [.erow.instrument get]
+	set duet [expr {[lsearch [.erow.duet state] "selected"] >= 0}]
 	set name [.erow.name get]
 	
 	set book ""
@@ -59,7 +71,7 @@ proc addrow {} {
 		switch [llength $book] {
 			0 {
 				# Create a new book
-				db eval {INSERT INTO books VALUES(NULL, $title, $author)}
+				db eval {INSERT INTO books VALUES(NULL, $title, $author, $instrument, $duet)}
 				set book [db last_insert_rowid]
 			}
 			1 {
