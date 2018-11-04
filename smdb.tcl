@@ -574,8 +574,15 @@ proc books_by_tune {tune} {
 	set ret [dict create]
 	set tuneid [db onecolumn {SELECT id FROM tunes WHERE name = $tune}]
 	db eval {SELECT bookid FROM book2tune WHERE tuneid = $tuneid} {
+		set title [db onecolumn {SELECT title FROM books WHERE id = $bookid}]
+		set instrument [db onecolumn {SELECT instrument FROM books WHERE id = $bookid}]
+		set duet ""
+		if {[db onecolumn {SELECT duet FROM books WHERE id = $bookid}]} {
+			set duet " (duet)"
+		}
+
 		dict lappend ret [db onecolumn {SELECT author FROM books WHERE id = $bookid}]\
-		                 [db eval {SELECT title FROM books WHERE id = $bookid}]
+		                 [string cat $title " ($instrument)" $duet]
 	}
 	return $ret
 }
