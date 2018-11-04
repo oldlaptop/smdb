@@ -430,8 +430,8 @@ proc create_search {} {
 	bind .search <Return> gui_search
 
 	bind .search.f.tf.tune <ButtonPress> {.search.f.tf.entune invoke}
-	bind .search.f.bf.title <ButtonPress> {.search.f.bf.entune invoke}
-	bind .search.f.bf.author <ButtonPress> {.search.f.bf.entune invoke}
+	bind .search.f.bf.title <ButtonPress> {.search.f.bf.enbook invoke}
+	bind .search.f.bf.author <ButtonPress> {.search.f.bf.enbook invoke}
 
 	search_enbook
 }
