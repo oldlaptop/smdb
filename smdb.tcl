@@ -454,7 +454,7 @@ proc gui_search {} {
 			dict for {author titles} [books_by_tune [.search.f.tf.tune get]] {
 				set rauthor [.search.f.results insert {} end -text $author -open true]
 				foreach title $titles {
-					.search.f.results insert $rauthor end -text $title
+					.search.f.results see [.search.f.results insert $rauthor end -text $title]
 				}
 			}
 		}
@@ -466,7 +466,7 @@ proc gui_search {} {
 					dict for {title tunes} $title {
 						set rbook [.search.f.results insert $rauthor end -text $title -open true]
 						foreach tune $tunes {
-							.search.f.results insert $rbook end -text "$tune"
+							.search.f.results see [.search.f.results insert $rbook end -text "$tune"]
 						}
 					}
 				}
