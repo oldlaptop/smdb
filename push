@@ -1,6 +1,6 @@
 #! /bin/sh
 
-remotes="rustbucket raspberrypi fogbox"
+remotes="rustbucket raspberrypi fogbox github"
 
 for remote in $remotes
 do
