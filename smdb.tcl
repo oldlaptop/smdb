@@ -632,9 +632,21 @@ proc books_by_book {title author} {
 wm title . "Sheet Music Database"
 
 ttk::frame .f
-ttk::button .f.entry -text "Data Entry" -command {if {![winfo exists .entry]} {create_entry}}
+ttk::button .f.entry -text "Data Entry" -command {
+	if {[winfo exists .entry]} {
+		destroy .entry
+	} else {
+		create_entry
+	}
+}
 
-ttk::button .f.search -text "Music Search" -command {if {![winfo exists .search]} {create_search}}
+ttk::button .f.search -text "Music Search" -command {
+	if {[winfo exists .search]} {
+		destroy .search
+	} else {
+		create_search
+	}
+}
 
 grid .f -sticky nsew
 grid .f.entry .f.search
