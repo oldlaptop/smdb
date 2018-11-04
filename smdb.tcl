@@ -4,6 +4,8 @@ package require sqlite3
 
 sqlite3 db "music.sqlite"
 
+# Database schema is simple: there are tunes and books, related to each other
+# many-to-one through the book2tune intermediate table.
 db eval {CREATE TABLE IF NOT EXISTS tunes (id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
                                            name TEXT ASC)}
 db eval {CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
@@ -16,7 +18,9 @@ db eval {CREATE TABLE IF NOT EXISTS book2tune (id INTEGER PRIMARY KEY ASC AUTOIN
                                                  tuneid INTEGER REFERENCES tunes(id))}
 db eval {PRAGMA foreign_keys=ON}
 
-# Taken from SQLite documentation and lightly modified.
+### Undo/redo support: taken from SQLite documentation and lightly modified. ###
+# See https://www.sqlite.org/undoredo.html and its corresponding .in file in the
+# sqlite documentation source tree.
 namespace eval ::undo {
 
 # proc:  ::undo::activate TABLE ...
@@ -279,6 +283,7 @@ proc _step {v1 v2} {
 
 # End of the ::undo namespace
 }
+### End undo/redo support taken from SQLite documentation ###
 
 set themes [ttk::style theme names]
 if {[lsearch $themes aqua] >= 0} {
@@ -294,12 +299,17 @@ if {[lsearch $themes aqua] >= 0} {
 	ttk::style theme use clam
 }
 
+# utility command, accepts a list of grid-ed widgets and an amount of padding to
+# apply to all sides of all of them
 proc pad_grid_widgets {widget_list {amt 4}} {
 	foreach widget $widget_list {
 		grid configure $widget -padx $amt -pady $amt
 	}
 }
 
+### Window creation commands
+
+# create the data entry top-level window
 proc create_entry {} {
 	toplevel .entry
 	wm title .entry "Sheet Music Database: Data Entry"
@@ -361,6 +371,8 @@ proc create_entry {} {
 	::undo::activate books tunes book2tune
 }
 
+# create the search top-level window; searchtype contains either book or tune
+# depending on the state of the two radio buttons
 set searchtype book
 proc create_search {} {
 	toplevel .search
@@ -424,18 +436,9 @@ proc create_search {} {
 	search_enbook
 }
 
-proc search_entune {} {
-	.search.f.tf.tune state !disabled
-	.search.f.bf.title state disabled
-	.search.f.bf.author state disabled
-}
+### GUI event handling commands
 
-proc search_enbook {} {
-	.search.f.tf.tune state disabled
-	.search.f.bf.title state !disabled
-	.search.f.bf.author state !disabled
-}
-
+# event handling for entry: record form data in the db
 proc gui_enter {} {
 	addrow
 	.entry.f.erow.name delete 0 end
@@ -446,6 +449,22 @@ proc gui_enter {} {
 	}
 }
 
+# event handling for search: enable search-by-tune
+proc search_entune {} {
+	.search.f.tf.tune state !disabled
+	.search.f.bf.title state disabled
+	.search.f.bf.author state disabled
+}
+
+# event handling for search: enable search-by-book
+proc search_enbook {} {
+	.search.f.tf.tune state disabled
+	.search.f.bf.title state !disabled
+	.search.f.bf.author state !disabled
+}
+
+
+# event handling for search: run the search
 proc gui_search {} {
 	global searchtype
 	switch $searchtype {
@@ -478,6 +497,9 @@ proc gui_search {} {
 	}
 }
 
+### Database manipulation commands
+
+# pull data from the entry window and add it to the db
 proc addrow {} {
 	global histsql
 	# Get our values as Tcl variables for sqlite's eval command
@@ -546,7 +568,8 @@ proc addrow {} {
 	}
 }
 
-# Returns a dict where keys are authors and values are book titles
+# Returns a dict where keys are authors and values are book titles (where each
+# book contains the given tune name)
 proc books_by_tune {tune} {
 	set ret [dict create]
 	set tuneid [db onecolumn {SELECT id FROM tunes WHERE name = $tune}]
@@ -558,7 +581,9 @@ proc books_by_tune {tune} {
 }
 
 # Returns a dict where keys are authors and values are dicts where the keys are
-# titles and the values are tunes
+# titles and the values are tunes (blech!). If either title or author is empty,
+# all titles or authors are matched, such that books_by_book "" "" returns all
+# books in the db.
 proc books_by_book {title author} {
 	set ret [dict create]
 	set books ""
@@ -594,6 +619,9 @@ proc books_by_book {title author} {
 	return $ret
 }
 
+### Startup script
+
+# Create the root window
 wm title . "Sheet Music Database"
 
 ttk::frame .f
