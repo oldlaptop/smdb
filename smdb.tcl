@@ -83,7 +83,6 @@ proc unfreeze {} {
 #
 proc event {} {
 		variable _undo
-		puts "foo!"
 		if {$_undo(pending)==""} {
 			set _undo(pending) [after idle ::undo::barrier]
 	}
@@ -94,7 +93,6 @@ proc event {} {
 #
 proc barrier {} {
 	variable _undo
-	puts "bar!"
 	catch {after cancel $_undo(pending)}
 	set _undo(pending) {}
 	if {!$_undo(active)} {
@@ -185,17 +183,13 @@ set _undo(startstate) {}
 proc status_refresh {} {
 	variable _undo
 	if {!$_undo(active) || [llength $_undo(undostack)]==0} {
-		puts ud
 		.entry.f.undo state disabled
 	} else {
-		puts ue
 		.entry.f.undo state !disabled
 	}
 	if {!$_undo(active) || [llength $_undo(redostack)]==0} {
-		puts rd
 		.entry.f.redo state disabled
 	} else {
-		puts re
 		.entry.f.redo state !disabled
 	}
 }
@@ -212,7 +206,6 @@ proc _create_triggers {db args} {
 	catch {$db eval {DROP TABLE undolog}}
 	$db eval {CREATE TEMP TABLE undolog(seq integer primary key, sql text)}
 	foreach tbl $args {
-		puts "omg triggered $tbl"
 		set collist [$db eval "pragma table_info($tbl)"]
 		set sql "CREATE TEMP TRIGGER _${tbl}_it AFTER INSERT ON $tbl BEGIN\n"
 		append sql "  INSERT INTO undolog VALUES(NULL,"
@@ -308,13 +301,18 @@ if {[lsearch $themes aqua] >= 0} {
 	ttk::style theme use clam
 }
 
+proc pad_grid_widgets {widget_list {amt 4}} {
+	foreach widget $widget_list {
+		grid configure $widget -padx $amt -pady $amt
+	}
+}
+
 proc create_entry {} {
 	toplevel .entry
 	wm title .entry "Sheet Music Database: Data Entry"
 	ttk::frame .entry.f
 
 	ttk::frame .entry.f.erow
-
 
 	ttk::label .entry.f.erow.titlel -text "Book Title"
 	ttk::label .entry.f.erow.authorl -text "Book Author"
@@ -343,12 +341,8 @@ proc create_entry {} {
 
 	pack .entry.f
 
-	foreach widget [winfo children .entry.f.erow] {
-		grid configure $widget -padx 2 -pady 2
-	}
-	foreach widget [winfo children .entry.f] {
-		grid configure $widget -padx 4 -pady 4
-	}
+	pad_grid_widgets [winfo children .entry.f.erow] 2
+	pad_grid_widgets [winfo children .entry.f] 4
 
 	.entry.f.erow.instrument set organ
 
@@ -361,10 +355,109 @@ proc create_entry {} {
 	::undo::activate books tunes book2tune
 }
 
+set searchtype tune
+proc create_search {} {
+	toplevel .search
+	wm title .search "Sheet Music Database: Music Search"
+	ttk::frame .search.f
+
+	ttk::label .search.f.tunel -text "By tune: "
+	ttk::radiobutton .search.f.entune -value tune -variable searchtype -command search_entune
+	ttk::entry .search.f.tune
+	.search.f.entune state selected
+
+	ttk::separator .search.f.sep1 -orient horizontal
+
+	ttk::label .search.f.bookl -text "By book:"
+	ttk::radiobutton .search.f.enbook -value book -variable searchtype -command search_enbook
+
+	ttk::label .search.f.titlel -text "Title: "
+	ttk::entry .search.f.title
+
+	ttk::label .search.f.authorl -text "Author: "
+	ttk::entry .search.f.author
+
+	ttk::separator .search.f.sep2 -orient horizontal
+
+	ttk::button .search.f.go -text "Search" -command gui_search
+
+	ttk::treeview .search.f.results -height 16 -show tree
+	.search.f.results column #0 -width 256
+
+	pack .search.f
+
+	grid .search.f.tunel .search.f.entune .search.f.tune -sticky w
+
+	grid .search.f.sep1 -columnspan 3 -sticky ew
+
+	grid .search.f.bookl .search.f.enbook -sticky w -rowspan 2
+	grid x .search.f.titlel .search.f.title -sticky w
+	grid x .search.f.authorl .search.f.author -sticky w
+
+	grid .search.f.sep2 -columnspan 3 -sticky ew
+
+	grid .search.f.go -column 2 -sticky ew
+	grid .search.f.results -columnspan 3 -sticky ew
+
+	pad_grid_widgets [winfo children .search.f] 4
+
+	bind .search <Return> gui_search
+
+	bind .search.f.tune <ButtonPress> {.search.f.entune invoke}
+	bind .search.f.title <ButtonPress> {.search.f.enbook invoke}
+	bind .search.f.author <ButtonPress> {.search.f.enbook invoke}
+
+	search_entune
+}
+
+proc search_entune {} {
+	.search.f.tune state !disabled
+	.search.f.title state disabled
+	.search.f.author state disabled
+}
+
+proc search_enbook {} {
+	.search.f.tune state disabled
+	.search.f.title state !disabled
+	.search.f.author state !disabled
+}
+
 proc gui_enter {} {
 	addrow
 	.entry.f.erow.name delete 0 end
 	::undo::event
+}
+
+proc gui_search {} {
+	global searchtype
+	switch $searchtype {
+		tune {
+			.search.f.results delete [.search.f.results children {}]
+			dict for {author titles} [books_by_tune [.search.f.tune get]] {
+				set rauthor [.search.f.results insert {} end -text $author -open true]
+				foreach title $titles {
+					.search.f.results insert $rauthor end -text $title
+				}
+			}
+		}
+		book {
+			.search.f.results delete [.search.f.results children {}]
+			dict for {author titles} [books_by_book [.search.f.title get] [.search.f.author get]] {
+				set rauthor [.search.f.results insert {} end -text $author -open true]
+				foreach title $titles {
+					dict for {title tunes} $title {
+						set rbook [.search.f.results insert $rauthor end -text $title -open true]
+						foreach tune $tunes {
+							.search.f.results insert $rbook end -text "$tune"
+						}
+					}
+				}
+			}
+		}
+		default {
+			puts "warning: invalid searchtype $searchtype"
+		}
+	}
 }
 
 proc addrow {} {
@@ -435,11 +528,62 @@ proc addrow {} {
 	}
 }
 
+# Returns a dict where keys are authors and values are book titles
+proc books_by_tune {tune} {
+	set ret [dict create]
+	set tuneid [db onecolumn {SELECT id FROM tunes WHERE name = $tune}]
+	db eval {SELECT bookid FROM book2tune WHERE tuneid = $tuneid} {
+		dict lappend ret [db onecolumn {SELECT author FROM books WHERE id = $bookid}]\
+		                 [db eval {SELECT title FROM books WHERE id = $bookid}]
+	}
+	return $ret
+}
+
+# Returns a dict where keys are authors and values are dicts where the keys are
+# titles and the values are tunes
+proc books_by_book {title author} {
+	set ret [dict create]
+	set books ""
+
+	if {[string length $title] > 0 && [string length $author] > 0} {
+		# Should really be unique, but we won't enforce this
+		set books [db eval {SELECT id FROM books WHERE title = $title AND author = $author}]
+	} elseif {[string length $title] > 0} {
+		set books [db eval {SELECT id FROM books WHERE title = $title}]
+	} elseif {[string length $author] > 0} {
+		set books [db eval {SELECT id FROM books WHERE author = $author}]
+	} else {
+		set books [db eval {SELECT id FROM books}]
+	}
+
+	foreach book $books {
+		set title [db onecolumn {SELECT title FROM books WHERE id = $book}]
+		set instrument [db onecolumn {SELECT instrument FROM books WHERE id = $book}]
+		set duet ""
+		if {[db onecolumn {SELECT duet FROM books WHERE id = $book}]} {
+			set duet " (duet)"
+		}
+		set tunes {}
+		db eval {SELECT tuneid FROM book2tune WHERE bookid = $book} {
+			lappend tunes [db onecolumn {SELECT name FROM tunes WHERE id = $tuneid}]
+		}
+
+
+		dict lappend ret [db onecolumn {SELECT author FROM books WHERE id = $book}]\
+		                 [dict create [string cat $title " ($instrument)" $duet] $tunes]
+	}
+
+	return $ret
+}
+
 wm title . "Sheet Music Database"
 
 ttk::frame .f
 ttk::button .f.entry -text "Data Entry" -command {if {![winfo exists .entry]} {create_entry}}
 
-pack .f
-pack .f.entry
+ttk::button .f.search -text "Music Search" -command {if {![winfo exists .search]} {create_search}}
 
+pack .f
+grid .f.entry .f.search
+
+pad_grid_widgets [winfo children .f] 4
