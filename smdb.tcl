@@ -148,18 +148,11 @@ proc refresh {} {
 # title:  Redraw everything based on the current database
 #
 # The undo module calls this routine after any undo/redo in order to
-# cause the screen to be completely redrawn based on the current database
-# contents.  This is accomplished by calling the "reload" module in
-# every top-level namespace other than ::undo.
-#
+# re-run the search if that window is open,
 proc reload_all {} {
-	set body {}
-	foreach ns [namespace children ::] {
-		if {[info proc ${ns}::reload]==""} continue
-		append body ${ns}::reload\n
+	if {[winfo exists .search]} {
+		gui_search
 	}
-	proc ::undo::reload_all {} $body
-	reload_all
 }
 
 ##############################################################################
@@ -322,29 +315,42 @@ proc create_entry {} {
 	ttk::entry .entry.f.erow.title
 	ttk::entry .entry.f.erow.author
 	ttk::combobox .entry.f.erow.instrument -state readonly -values {organ piano}
+	              .entry.f.erow.instrument set organ
 	ttk::checkbutton .entry.f.erow.duet
 	ttk::entry .entry.f.erow.name
 	ttk::button .entry.f.erow.enter -text Enter -command gui_enter -takefocus 0
 
 	ttk::separator .entry.f.sep1 -orient vertical -takefocus 0
-	ttk::separator .entry.f.sep2 -orient vertical -takefocus 0
 
 	ttk::button .entry.f.undo -text "Undo" -command ::undo::undo -takefocus 0
 	ttk::button .entry.f.redo -text "Redo" -command ::undo::redo -takefocus 0
 
-	grid .entry.f.erow.titlel .entry.f.erow.authorl .entry.f.erow.instrumentl .entry.f.erow.duetl .entry.f.erow.namel -sticky nsew
-	grid .entry.f.erow.title .entry.f.erow.author .entry.f.erow.instrument .entry.f.erow.duet .entry.f.erow.name .entry.f.erow.enter -sticky nsew
+	grid .entry.f -sticky nsew
 
-	grid .entry.f.undo .entry.f.sep1 .entry.f.redo .entry.f.sep2 .entry.f.erow -sticky nsew
+	grid .entry.f.undo -sticky nsew
+	grid .entry.f.redo -sticky nsew
+	grid .entry.f.sep1 -row 0 -column 1 -rowspan 2 -sticky nsew
+	grid .entry.f.erow -row 0 -column 2 -rowspan 2 -sticky w
 
-	grid rowconfigure .entry.f 0 -weight 1
-
-	pack .entry.f
+	grid .entry.f.erow.titlel .entry.f.erow.title -sticky ew
+	grid .entry.f.erow.authorl .entry.f.erow.author -sticky ew
+	grid .entry.f.erow.instrumentl .entry.f.erow.instrument -sticky ew
+	grid .entry.f.erow.duetl .entry.f.erow.duet -sticky ew
+	grid .entry.f.erow.namel .entry.f.erow.name -sticky ew
+	grid .entry.f.erow.enter -column 1 -sticky nsew
 
 	pad_grid_widgets [winfo children .entry.f.erow] 2
 	pad_grid_widgets [winfo children .entry.f] 4
 
-	.entry.f.erow.instrument set organ
+	grid columnconfigure .entry 0 -weight 1
+	grid rowconfigure .entry 0 -weight 1
+
+	grid columnconfigure .entry.f 0 -weight 1
+	grid columnconfigure .entry.f 1 -weight 1
+	grid rowconfigure .entry.f 0 -weight 1
+	grid rowconfigure .entry.f 1 -weight 1
+
+	grid columnconfigure .entry.f.erow 1 -weight 1
 
 	bind .entry <Control-Z> ::undo::undo
 	bind .entry <Control-Y> ::undo::redo
@@ -355,77 +361,89 @@ proc create_entry {} {
 	::undo::activate books tunes book2tune
 }
 
-set searchtype tune
+set searchtype book
 proc create_search {} {
 	toplevel .search
 	wm title .search "Sheet Music Database: Music Search"
 	ttk::frame .search.f
 
-	ttk::label .search.f.tunel -text "By tune: "
-	ttk::radiobutton .search.f.entune -value tune -variable searchtype -command search_entune
-	ttk::entry .search.f.tune
-	.search.f.entune state selected
+	ttk::labelframe .search.f.tf -text "By tune:"
+	ttk::label .search.f.tf.tunel -text "Name:  "
+	ttk::radiobutton .search.f.tf.entune -value tune -variable searchtype -command search_entune
+	ttk::entry .search.f.tf.tune
 
-	ttk::separator .search.f.sep1 -orient horizontal
+	ttk::labelframe .search.f.bf -text "By book:"
+	ttk::radiobutton .search.f.bf.enbook -value book -variable searchtype -command search_enbook
 
-	ttk::label .search.f.bookl -text "By book:"
-	ttk::radiobutton .search.f.enbook -value book -variable searchtype -command search_enbook
+	ttk::label .search.f.bf.titlel -text "Title: "
+	ttk::entry .search.f.bf.title
 
-	ttk::label .search.f.titlel -text "Title: "
-	ttk::entry .search.f.title
-
-	ttk::label .search.f.authorl -text "Author: "
-	ttk::entry .search.f.author
-
-	ttk::separator .search.f.sep2 -orient horizontal
+	ttk::label .search.f.bf.authorl -text "Author: "
+	ttk::entry .search.f.bf.author
 
 	ttk::button .search.f.go -text "Search" -command gui_search
 
-	ttk::treeview .search.f.results -height 16 -show tree
-	.search.f.results column #0 -width 256
+	ttk::treeview .search.f.results -height 24 -show tree
+	              .search.f.results column #0 -width 320
 
-	pack .search.f
+	grid .search.f -sticky nsew
 
-	grid .search.f.tunel .search.f.entune .search.f.tune -sticky w
+	grid .search.f.tf.entune .search.f.tf.tunel -sticky w
+	grid .search.f.tf.tune -row 0 -column 2 -sticky e
 
-	grid .search.f.sep1 -columnspan 3 -sticky ew
+	grid .search.f.bf.enbook .search.f.bf.titlel -sticky w
+	grid .search.f.bf.title -row 0 -column 2 -sticky e
+	grid x .search.f.bf.authorl -sticky w
+	grid .search.f.bf.author -row 1 -column 2 -sticky e
+	
 
-	grid .search.f.bookl .search.f.enbook -sticky w -rowspan 2
-	grid x .search.f.titlel .search.f.title -sticky w
-	grid x .search.f.authorl .search.f.author -sticky w
+	grid .search.f.tf -sticky nsew
+	grid .search.f.bf -sticky nsew
+	grid .search.f.go -sticky e
+	grid .search.f.results -sticky nsew
 
-	grid .search.f.sep2 -columnspan 3 -sticky ew
-
-	grid .search.f.go -column 2 -sticky ew
-	grid .search.f.results -columnspan 3 -sticky ew
-
+	pad_grid_widgets [winfo children .search.f.tf] 4
+	pad_grid_widgets [winfo children .search.f.bf] 4
 	pad_grid_widgets [winfo children .search.f] 4
+
+	grid columnconfigure .search 0 -weight 1
+	grid rowconfigure .search 0 -weight 1
+
+	grid columnconfigure .search.f.tf 2 -weight 1
+	grid columnconfigure .search.f.bf 2 -weight 1
+
+	grid columnconfigure .search.f 0 -weight 1
+	grid rowconfigure .search.f 3 -weight 1
 
 	bind .search <Return> gui_search
 
-	bind .search.f.tune <ButtonPress> {.search.f.entune invoke}
-	bind .search.f.title <ButtonPress> {.search.f.enbook invoke}
-	bind .search.f.author <ButtonPress> {.search.f.enbook invoke}
+	bind .search.f.tf.tune <ButtonPress> {.search.f.tf.entune invoke}
+	bind .search.f.bf.title <ButtonPress> {.search.f.bf.entune invoke}
+	bind .search.f.bf.author <ButtonPress> {.search.f.bf.entune invoke}
 
-	search_entune
+	search_enbook
 }
 
 proc search_entune {} {
-	.search.f.tune state !disabled
-	.search.f.title state disabled
-	.search.f.author state disabled
+	.search.f.tf.tune state !disabled
+	.search.f.bf.title state disabled
+	.search.f.bf.author state disabled
 }
 
 proc search_enbook {} {
-	.search.f.tune state disabled
-	.search.f.title state !disabled
-	.search.f.author state !disabled
+	.search.f.tf.tune state disabled
+	.search.f.bf.title state !disabled
+	.search.f.bf.author state !disabled
 }
 
 proc gui_enter {} {
 	addrow
 	.entry.f.erow.name delete 0 end
 	::undo::event
+
+	if {[winfo exists .search]} {
+		gui_search
+	}
 }
 
 proc gui_search {} {
@@ -433,7 +451,7 @@ proc gui_search {} {
 	switch $searchtype {
 		tune {
 			.search.f.results delete [.search.f.results children {}]
-			dict for {author titles} [books_by_tune [.search.f.tune get]] {
+			dict for {author titles} [books_by_tune [.search.f.tf.tune get]] {
 				set rauthor [.search.f.results insert {} end -text $author -open true]
 				foreach title $titles {
 					.search.f.results insert $rauthor end -text $title
@@ -442,7 +460,7 @@ proc gui_search {} {
 		}
 		book {
 			.search.f.results delete [.search.f.results children {}]
-			dict for {author titles} [books_by_book [.search.f.title get] [.search.f.author get]] {
+			dict for {author titles} [books_by_book [.search.f.bf.title get] [.search.f.bf.author get]] {
 				set rauthor [.search.f.results insert {} end -text $author -open true]
 				foreach title $titles {
 					dict for {title tunes} $title {
@@ -583,7 +601,14 @@ ttk::button .f.entry -text "Data Entry" -command {if {![winfo exists .entry]} {c
 
 ttk::button .f.search -text "Music Search" -command {if {![winfo exists .search]} {create_search}}
 
-pack .f
+grid .f -sticky nsew
 grid .f.entry .f.search
+
+grid columnconfigure . 0 -weight 1
+grid rowconfigure . 0 -weight 1
+
+grid columnconfigure .f 0 -weight 1
+grid columnconfigure .f 1 -weight 1
+grid rowconfigure .f 0 -weight 1
 
 pad_grid_widgets [winfo children .f] 4
