@@ -572,7 +572,9 @@ proc addrow {} {
 # book contains the given tune name)
 proc books_by_tune {tune} {
 	set ret [dict create]
-	set tuneid [db onecolumn {SELECT id FROM tunes WHERE name = $tune}]
+	set tune [string cat % $tune %]
+	puts $tune
+	set tuneid [db onecolumn {SELECT id FROM tunes WHERE name LIKE $tune}]
 	db eval {SELECT bookid FROM book2tune WHERE tuneid = $tuneid} {
 		set title [db onecolumn {SELECT title FROM books WHERE id = $bookid}]
 		set instrument [db onecolumn {SELECT instrument FROM books WHERE id = $bookid}]
@@ -593,15 +595,18 @@ proc books_by_tune {tune} {
 # books in the db.
 proc books_by_book {title author} {
 	set ret [dict create]
+	set title [string cat % $title %]
+	set author [string cat % $author %]
 	set books ""
 
-	if {[string length $title] > 0 && [string length $author] > 0} {
+	# These lengths will be at least two because of our %-padding above
+	if {[string length $title] > 2 && [string length $author] > 2} {
 		# Should really be unique, but we won't enforce this
-		set books [db eval {SELECT id FROM books WHERE title = $title AND author = $author}]
-	} elseif {[string length $title] > 0} {
-		set books [db eval {SELECT id FROM books WHERE title = $title}]
-	} elseif {[string length $author] > 0} {
-		set books [db eval {SELECT id FROM books WHERE author = $author}]
+		set books [db eval {SELECT id FROM books WHERE title LIKE $title AND author LIKE $author}]
+	} elseif {[string length $title] > 2} {
+		set books [db eval {SELECT id FROM books WHERE title LIKE $title}]
+	} elseif {[string length $author] > 2} {
+		set books [db eval {SELECT id FROM books WHERE author LIKE $author}]
 	} else {
 		set books [db eval {SELECT id FROM books}]
 	}
