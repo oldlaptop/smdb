@@ -418,6 +418,7 @@ proc create_search {} {
 
 	pad_grid_widgets [winfo children .search.f.tf] 4
 	pad_grid_widgets [winfo children .search.f.bf] 4
+	pad_grid_widgets [winfo children .search.f] 4
 
 	# Pad the result window on only three sides (scrollbar)
 	grid configure .search.f.results -padx {4 0} -pady 4
