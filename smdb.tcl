@@ -395,8 +395,9 @@ proc create_search {} {
 
 	ttk::button .search.f.go -text "Search" -command gui_search
 
-	ttk::treeview .search.f.results -height 24 -show tree
+	ttk::treeview .search.f.results -height 24 -show tree -yscrollcommand {.search.f.resultscroll set}
 	              .search.f.results column #0 -width 320
+	ttk::scrollbar .search.f.resultscroll -orient vertical -command {.search.f.results yview}
 
 	grid .search.f -sticky nsew
 
@@ -413,10 +414,15 @@ proc create_search {} {
 	grid .search.f.bf -sticky nsew
 	grid .search.f.go -sticky e
 	grid .search.f.results -sticky nsew
+	grid .search.f.resultscroll -row 3 -column 1 -sticky ns
 
 	pad_grid_widgets [winfo children .search.f.tf] 4
 	pad_grid_widgets [winfo children .search.f.bf] 4
-	pad_grid_widgets [winfo children .search.f] 4
+
+	# Pad the result window on only three sides (scrollbar)
+	grid configure .search.f.results -padx {4 0} -pady 4
+	# Similarly for the scrollbar itself
+	grid configure .search.f.resultscroll -padx {0 4} -pady 4
 
 	grid columnconfigure .search 0 -weight 1
 	grid rowconfigure .search 0 -weight 1
