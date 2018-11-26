@@ -16,7 +16,10 @@ db eval {CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY ASC AUTOINCREM
 db eval {CREATE TABLE IF NOT EXISTS book2tune (id INTEGER PRIMARY KEY ASC AUTOINCREMENT,
                                                  bookid INTEGER REFERENCES books(id),
                                                  tuneid INTEGER REFERENCES tunes(id))}
+
 db eval {PRAGMA foreign_keys=ON}
+db eval {CREATE INDEX IF NOT EXISTS book2tune_tuneid ON book2tune(tuneid)}
+db eval {CREATE INDEX IF NOT EXISTS book2tune_bookid ON book2tune(bookid)}
 
 ### Undo/redo support: taken from SQLite documentation and lightly modified. ###
 # See https://www.sqlite.org/undoredo.html and its corresponding .in file in the
